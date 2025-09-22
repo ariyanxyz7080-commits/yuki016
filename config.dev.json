@@ -12,13 +12,13 @@
 	"antiInbox": false,
 	"language": "en",
 	"notesLanguage": "change to your language with ISO 639-1 code, available languages: vi (Vietnamese), en (English)",
-	"nickNameBot": "⋆˚🦋𝐀𝐥𝐲𝐚 𝐂𝐡𝐚𝐧🎀🍓⋆˚",
-	"prefix": "!",
+	"nickNameBot": "🦋𝐘𝐮𝐤𝐢✨",
+	"prefix": "+",
 	"adminOnly": {
 		"enable": false,
 		"ignoreCommand": []
 	},
-	"adminBot": ["100069254151118","61572240295227","100051997177668"],
+	"adminBot": ["100069254151118"],
 	"whiteListMode": {
 		"enable": false,
 		"whiteListIds": [],
