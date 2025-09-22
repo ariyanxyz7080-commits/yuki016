@@ -63,7 +63,7 @@ module.exports = {
                 const info = `
 ╭─❏ 📜 𝐂𝐨𝐦𝐦𝐚𝐧𝐝 𝐈𝐧𝐟𝐨 🔖 ─❏
 │ 👑 𝐀𝐝𝐦𝐢𝐧: 𝐀 𝐑 𝐈 𝐉 𝐈 𝐓⚡
-│ 🤖 𝐁𝐨𝐭: 𝐀𝐥𝐲𝐚 𝐜𝐡𝐚𝐧🐱🎀
+│ 🤖 𝐁𝐨𝐭: 🦋𝐘𝐮𝐤𝐢✨
 │ 📌 𝐍𝐚𝐦𝐞: ${cmd.config.name.toUpperCase()}
 │ 📛 𝐀𝐥𝐢𝐚𝐬𝐞𝐬: ${cmd.config.aliases?.length ? cmd.config.aliases.join(", ") : "None"}
 │ 📄 𝐃𝐞𝐬𝐜𝐫𝐢𝐩𝐭𝐢𝐨𝐧: ${typeof cmd.config.shortDescription === "string" ? cmd.config.shortDescription : (cmd.config.shortDescription?.en || "No description")}
@@ -104,7 +104,7 @@ module.exports = {
     }
 
     // Footer
-    output += `\n╭─ [ 𝐀𝐥𝐲𝐚 𝐂𝐡𝐚𝐧 ]\n`;
+    output += `\n╭─ [🦋𝐘𝐮𝐤𝐢✨]\n`;
     output += `╰‣ 𝐀𝐝𝐦𝐢𝐧 : 𝐀 𝐑 𝐈 𝐉 𝐈 𝐓⚡\n`;
     output += `╰‣ 𝐓𝐨𝐭𝐚𝐥 𝐜𝐨𝐦𝐦𝐚𝐧𝐝𝐬 : ${allCommands.size}\n`;
     output += `╰‣ 𝐅𝐚𝐜𝐞𝐛𝐨𝐨𝐤 \n`;
