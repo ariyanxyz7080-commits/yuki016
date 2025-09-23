@@ -1,7 +1,15 @@
-const Birthday = require("./mongo"); // MongoDB model
-const { createCanvas } = require("canvas");
+const mongoose = require("mongoose");
+const cron = require("node-cron");
 
-// Bold Unicode converter
+// --- MONGOOSE MODEL ---
+const birthdaySchema = new mongoose.Schema({
+  name: String,
+  date: String, // stored as DD-MM-YYYY
+  wished: { type: Boolean, default: false }
+});
+const Birthday = mongoose.model("Birthday", birthdaySchema);
+
+// --- BOLD UNICODE ---
 function toBoldUnicode(text) {
   const boldAlphabet = {
     "a":"𝐚","b":"𝐛","c":"𝐜","d":"𝐝","e":"𝐞","f":"𝐟","g":"𝐠","h":"𝐡","i":"𝐢","j":"𝐣",
@@ -36,16 +44,46 @@ function isBirthdayToday(date) {
   return date.getDate()===today.getDate() && date.getMonth()===today.getMonth();
 }
 
+// --- AUTO WISH HELPER ---
+async function autoWish(api, threadID) {
+  const allBirthdays = await Birthday.find();
+  for (let b of allBirthdays) {
+    const date = parseDate(b.date);
+    if (isBirthdayToday(date) && !b.wished) {
+      await api.sendMessage(
+        `🎉 @${b.name} 𝗛𝗮𝗽𝗽𝘆 𝗕𝗶𝗿𝘁𝗵𝗱𝗮𝘆🎂🥳\n` +
+        `𝗠𝗮𝗻𝘆 𝗵𝗮𝗽𝗽𝘆 𝗿𝗲𝘁𝘂𝗿𝗻𝘀 𝗼𝗳 𝘁𝗵𝗲 𝗱𝗮𝘆🌸💫`,
+        threadID,
+        null,
+        { mentions: [{ tag: b.name, id: b._id }] } // Replace _id with real user ID if needed
+      );
+      b.wished = true;
+      await b.save();
+    }
+  }
+}
+
+// --- DAILY AUTO-WISH CRON ---
+cron.schedule("0 0 * * *", async () => {
+  try {
+    if(global.api && global.defaultThread) {
+      await autoWish(global.api, global.defaultThread);
+    }
+  } catch(e) {
+    console.error("Birthday cron error:", e);
+  }
+});
+
 module.exports = {
   config: {
     name: "birthday",
-    aliases: ["bd"],
-    version: "5.0",
-    author: "Nafiz + Arijit + Kuze",
+    aliases: [],
+    version: "6.1",
+    author: "Arijit + Nafiz + Kuze",
     countDown: 5,
     role: 0,
     shortDescription: "Manage birthdays in MongoDB",
-    longDescription: "Add, remove, edit, view, leaderboard and auto-wish birthdays",
+    longDescription: "Add, remove, edit, view, leaderboard, and auto-wish birthdays",
     category: "utility",
     guide: {
       en: `{p}birthday add <DD-MM-YYYY> <name>
@@ -62,21 +100,8 @@ module.exports = {
     const sub = args[0];
     const allBirthdays = await Birthday.find();
 
-    // --- AUTO WISH ---
-    for(let b of allBirthdays) {
-      const date = parseDate(b.date);
-      if(isBirthdayToday(date) && !b.wished) {
-        await api.sendMessage(
-          `🎉 @${b.name} 𝗛𝗮𝗽𝗽𝘆 𝗕𝗶𝗿𝘁𝗵𝗱𝗮𝘆🎂🥳\n` +
-          `𝗠𝗮𝗻𝘆 𝗵𝗮𝗽𝗽𝘆 𝗿𝗲𝘁𝘂𝗿𝗻𝘀 𝗼𝗳 𝘁𝗵𝗲 𝗱𝗮𝘆🌸💫`,
-          message.threadID,
-          null,
-          { mentions: [{ tag: b.name, id: b._id }] }
-        );
-        b.wished = true;
-        await b.save();
-      }
-    }
+    // --- AUTO WISH TODAY ---
+    await autoWish(api, message.threadID);
 
     if(!sub) return api.sendMessage("❌ | Please provide an action: add, list, next, countdown, remove, edit, lb", message.threadID);
 
