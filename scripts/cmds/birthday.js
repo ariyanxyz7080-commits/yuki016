@@ -1,234 +1,169 @@
-const fs = require("fs-extra");
-const path = require("path");
+const Birthday = require("./mongo"); // MongoDB model
 const { createCanvas } = require("canvas");
-const moment = require("moment-timezone");
-const mongoose = require("mongoose");
 
-// ===== MongoDB Schema =====
-const birthdaySchema = new mongoose.Schema({
-  userID: String,
-  name: String,
-  date: String,
-  zodiac: String
-});
-const Birthday = mongoose.models.Birthday || mongoose.model("Birthday", birthdaySchema);
-
-// ===== Unicode Bold Converter =====
-function toBoldUnicode(name) {
+// Bold Unicode converter
+function toBoldUnicode(text) {
   const boldAlphabet = {
-    "a": "𝐚","b": "𝐛","c": "𝐜","d": "𝐝","e": "𝐞","f": "𝐟","g": "𝐠","h": "𝐡","i": "𝐢","j": "𝐣",
-    "k": "𝐤","l": "𝐥","m": "𝐦","n": "𝐧","o": "𝐨","p": "𝐩","q": "𝐪","r": "𝐫","s": "𝐬","t": "𝐭",
-    "u": "𝐮","v": "𝐯","w": "𝐰","x": "𝐱","y": "𝐲","z": "𝐳","A": "𝐀","B": "𝐁","C": "𝐂","D": "𝐃",
-    "E": "𝐄","F": "𝐅","G": "𝐆","H": "𝐇","I": "𝐈","J": "𝐉","K": "𝐊","L": "𝐋","M": "𝐌","N": "𝐍",
-    "O": "𝐎","P": "𝐏","Q": "𝐐","R": "𝐑","S": "𝐒","T": "𝐓","U": "𝐔","V": "𝐕","W": "𝐖","X": "𝐗",
-    "Y": "𝐘","Z": "𝐙","0": "0","1": "1","2": "2","3": "3","4": "4","5": "5","6": "6","7": "7","8": "8",
-    "9": "9"," ": " ","'": "'",
-    ",": ",",".": ".","-": "-","!": "!","?": "?"
+    "a":"𝐚","b":"𝐛","c":"𝐜","d":"𝐝","e":"𝐞","f":"𝐟","g":"𝐠","h":"𝐡","i":"𝐢","j":"𝐣",
+    "k":"𝐤","l":"𝐥","m":"𝐦","n":"𝐧","o":"𝐨","p":"𝐩","q":"𝐪","r":"𝐫","s":"𝐬","t":"𝐭",
+    "u":"𝐮","v":"𝐯","w":"𝐰","x":"𝐱","y":"𝐲","z":"𝐳",
+    "A":"𝐀","B":"𝐁","C":"𝐂","D":"𝐃","E":"𝐄","F":"𝐅","G":"𝐆","H":"𝐇","I":"𝐈","J":"𝐉",
+    "K":"𝐊","L":"𝐋","M":"𝐌","N":"𝐍","O":"𝐎","P":"𝐏","Q":"𝐐","R":"𝐑","S":"𝐒","T":"𝐓",
+    "U":"𝐔","V":"𝐕","W":"𝐖","X":"𝐗","Y":"𝐘","Z":"𝐙",
+    "0":"𝟎","1":"𝟏","2":"𝟐","3":"𝟑","4":"𝟒","5":"𝟓","6":"𝟔","7":"𝟕","8":"𝟖","9":"𝟗",
+    " ":" ","'":"'","-":"-",".":".",",":",","!":"!","?":"?"
   };
-  return name.split("").map(c => boldAlphabet[c] || c).join("");
+  return text.split('').map(c => boldAlphabet[c] || c).join('');
 }
 
-// ===== Zodiac Helper =====
-function getZodiac(day, month) {
-  const zodiacs = [
-    ["Capricorn", "♑"], ["Aquarius", "♒"], ["Pisces", "♓"], ["Aries", "♈"], ["Taurus", "♉"], ["Gemini", "♊"],
-    ["Cancer", "♋"], ["Leo", "♌"], ["Virgo", "♍"], ["Libra", "♎"], ["Scorpio", "♏"], ["Sagittarius", "♐"], ["Capricorn", "♑"]
-  ];
-  const lastDay = [20, 19, 20, 20, 21, 21, 22, 22, 22, 23, 22, 21];
-  return month === 1 && day <= 19 ? "♑" :
-    (day > lastDay[month - 1] ? zodiacs[month][1] : zodiacs[month - 1][1]);
+// --- DATE HELPERS ---
+function parseDate(str) {
+  const parts = str.split(/[-/]/).map(n=>parseInt(n));
+  if(parts.length!==3) return null;
+  return new Date(parts[2], parts[1]-1, parts[0]);
 }
-
-// ===== Fallback File =====
-const fallbackFile = path.join(__dirname, "birthdays.json");
-if (!fs.existsSync(fallbackFile)) fs.writeJSONSync(fallbackFile, []);
-
-// ===== Helper: Get All Birthdays =====
-async function getBirthdays() {
-  try {
-    return await Birthday.find();
-  } catch {
-    return fs.readJSONSync(fallbackFile, []);
-  }
+function formatDate(date) {
+  return `${String(date.getDate()).padStart(2,"0")}-${String(date.getMonth()+1).padStart(2,"0")}-${date.getFullYear()}`;
 }
-
-// ===== Helper: Save Birthdays (Fallback) =====
-function saveBirthdays(data) {
-  fs.writeJSONSync(fallbackFile, data, { spaces: 2 });
+function daysUntil(date) {
+  const today = new Date();
+  const next = new Date(today.getFullYear(), date.getMonth(), date.getDate());
+  if(next < today) next.setFullYear(today.getFullYear()+1);
+  return Math.ceil((next-today)/(1000*60*60*24));
+}
+function isBirthdayToday(date) {
+  const today = new Date();
+  return date.getDate()===today.getDate() && date.getMonth()===today.getMonth();
 }
 
 module.exports = {
   config: {
     name: "birthday",
-    version: "3.1",
-    author: "Nafiz + kuze",
+    aliases: ["bd"],
+    version: "5.0",
+    author: "Nafiz + Arijit + Kuze",
     countDown: 5,
     role: 0,
-    shortDescription: "Manage birthdays",
-    longDescription: "Birthday manager with add, list, countdown, horoscope & reminders",
+    shortDescription: "Manage birthdays in MongoDB",
+    longDescription: "Add, remove, edit, view, leaderboard and auto-wish birthdays",
     category: "utility",
     guide: {
-      en: "{p}birthday add <DD-MM-YYYY> <name>\n{p}birthday list\n{p}birthday next\n{p}birthday countdown\n{p}birthday remove <name>\n{p}birthday edit <name> <new-date>"
+      en: `{p}birthday add <DD-MM-YYYY> <name>
+{p}birthday list
+{p}birthday next
+{p}birthday countdown
+{p}birthday remove <name>
+{p}birthday edit <name> <new-date>
+{p}birthday lb`
     }
   },
 
-  onStart: async function ({ args, message, event }) {
+  onStart: async function({ message, args, api }) {
     const sub = args[0];
-    if (!sub) return message.reply("🎂 Use: add/list/remove/edit/next/countdown");
+    const allBirthdays = await Birthday.find();
 
-    // ===== ADD =====
-    if (sub === "add") {
-      const [date, ...rest] = args.slice(1);
-      const name = rest.join(" ");
-      if (!date || !name) return message.reply("⚠️ Format: birthday add <DD-MM-YYYY> <name>");
-
-      const [day, month] = date.split("-").map(n => parseInt(n));
-      const zodiac = getZodiac(day, month);
-
-      try {
-        await Birthday.create({ userID: event.senderID, name, date, zodiac });
-      } catch {
-        let data = await getBirthdays();
-        data.push({ userID: event.senderID, name, date, zodiac });
-        saveBirthdays(data);
+    // --- AUTO WISH ---
+    for(let b of allBirthdays) {
+      const date = parseDate(b.date);
+      if(isBirthdayToday(date) && !b.wished) {
+        await api.sendMessage(
+          `🎉 @${b.name} 𝗛𝗮𝗽𝗽𝘆 𝗕𝗶𝗿𝘁𝗵𝗱𝗮𝘆🎂🥳\n` +
+          `𝗠𝗮𝗻𝘆 𝗵𝗮𝗽𝗽𝘆 𝗿𝗲𝘁𝘂𝗿𝗻𝘀 𝗼𝗳 𝘁𝗵𝗲 𝗱𝗮𝘆🌸💫`,
+          message.threadID,
+          null,
+          { mentions: [{ tag: b.name, id: b._id }] }
+        );
+        b.wished = true;
+        await b.save();
       }
-
-      return message.reply(`✅ Added **${name}** 🎂 on ${date} ${zodiac}`);
     }
 
-    // ===== LIST (Premium Image Card) =====
-    if (sub === "list") {
-      const birthdays = await getBirthdays();
-      if (birthdays.length === 0) return message.reply("📭 | No birthdays saved yet.");
+    if(!sub) return api.sendMessage("❌ | Please provide an action: add, list, next, countdown, remove, edit, lb", message.threadID);
 
-      const width = 950;
-      const height = 180 + birthdays.length * 100;
-      const canvas = createCanvas(width, height);
-      const ctx = canvas.getContext("2d");
+    // --- ADD ---
+    if(sub==="add") {
+      const dateStr = args[1];
+      const name = args.slice(2).join(" ");
+      if(!dateStr || !name) return api.sendMessage("❌ | Usage: birthday add <DD-MM-YYYY> <name>", message.threadID);
+      const date = parseDate(dateStr);
+      if(!date) return api.sendMessage("❌ | Invalid date format.", message.threadID);
+      const b = new Birthday({name,date:formatDate(date),wished:false});
+      await b.save();
+      return api.sendMessage(`✅ | Birthday added for ${name} (${formatDate(date)})`, message.threadID);
+    }
 
-      // Premium Gradient Background
-      const gradient = ctx.createLinearGradient(0, 0, width, height);
-      gradient.addColorStop(0, "#ffecd2"); // peach
-      gradient.addColorStop(1, "#fcb69f"); // coral
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, width, height);
-
-      // Title
-      ctx.fillStyle = "#2c2c54";
-      ctx.font = "bold 42px Sans";
-      ctx.fillText("🎂| 𝗕𝗶𝗿𝘁𝗵𝗱𝗮𝘆 𝗟𝗶𝘀𝘁 :", 60, 80);
-
-      let y = 150;
-      for (let i = 0; i < birthdays.length; i++) {
-        const b = birthdays[i];
+    // --- LIST ---
+    if(sub==="list") {
+      if(allBirthdays.length===0) return api.sendMessage("📭 | No birthdays saved.", message.threadID);
+      let list = "🎂 𝐇𝐚𝐩𝐩𝐲 𝐁𝐢𝐫𝐭𝐡𝐝𝐚𝐲 𝐋𝐢𝐬𝐭 🎂\n\n";
+      allBirthdays.forEach(b=>{
         const boldName = toBoldUnicode(b.name);
-
-        // Premium Name (black + gold glow)
-        ctx.shadowColor = "#FFD700";
-        ctx.shadowBlur = 6;
-        ctx.fillStyle = "#000";
-        ctx.font = "30px Sans";
-        ctx.fillText(`╭‣ ${i + 1}. ${boldName}`, 80, y);
-        ctx.shadowBlur = 0;
-        y += 45;
-
-        // Date (blue) + Zodiac (gold)
-        ctx.fillStyle = "#1e3799";
-        ctx.font = "24px Sans";
-        ctx.fillText(`╰‣ 🎂 [ ${b.date} ]`, 80, y);
-
-        ctx.fillStyle = "#FFD700";
-        ctx.font = "26px Sans";
-        ctx.fillText(`${b.zodiac}`, 360, y);
-
-        y += 60;
-      }
-
-      // Footer line
-      ctx.fillStyle = "#2c2c54";
-      ctx.font = "bold 28px Monospace";
-      ctx.fillText("", 80, y);
-
-      // Save & send
-      const imgPath = path.join(__dirname, "birthday_list_card.png");
-      const buffer = canvas.toBuffer("image/png");
-      fs.writeFileSync(imgPath, buffer);
-
-      return message.reply({
-        body: `🎀 | Birthday Directory (${birthdays.length} total)`,
-        attachment: fs.createReadStream(imgPath)
+        const boldDays = toBoldUnicode(`${daysUntil(parseDate(b.date))} days left`);
+        list+=`╭─‣ ${boldName}: [${b.date}]\n╰──‣ (${boldDays})\n`;
       });
+      return api.sendMessage(list, message.threadID);
     }
 
-    // ===== REMOVE =====
-    if (sub === "remove") {
+    // --- NEXT ---
+    if(sub==="next") {
+      if(allBirthdays.length===0) return api.sendMessage("📭 | No birthdays saved.", message.threadID);
+      const sorted = allBirthdays.sort((a,b)=>daysUntil(parseDate(a.date))-daysUntil(parseDate(b.date)));
+      const next = sorted[0];
+      const boldName = toBoldUnicode(next.name);
+      const boldDays = toBoldUnicode(`${daysUntil(parseDate(next.date))} days left`);
+      return api.sendMessage(`🎉 𝐍𝐞𝐱𝐭 𝐁𝐢𝐫𝐭𝐡𝐝𝐚𝐲 🎉\n\n╭─‣ ${boldName}: [${next.date}]\n╰──‣ (${boldDays})`, message.threadID);
+    }
+
+    // --- COUNTDOWN ---
+    if(sub==="countdown") {
+      if(allBirthdays.length===0) return api.sendMessage("📭 | No birthdays saved.", message.threadID);
+      const sorted = allBirthdays.sort((a,b)=>daysUntil(parseDate(a.date))-daysUntil(parseDate(b.date)));
+      let countdown = "⏳ 𝐁𝐢𝐫𝐭𝐡𝐝𝐚𝐲 𝐂𝐨𝐮𝐧𝐭𝐝𝐨𝐰𝐧 ⏳\n\n";
+      sorted.forEach(b=>{
+        const boldName = toBoldUnicode(b.name);
+        const boldDays = toBoldUnicode(`${daysUntil(parseDate(b.date))} days left`);
+        countdown+=`╭─‣ ${boldName}: [${b.date}]\n╰──‣ (${boldDays})\n`;
+      });
+      return api.sendMessage(countdown, message.threadID);
+    }
+
+    // --- REMOVE ---
+    if(sub==="remove") {
       const name = args.slice(1).join(" ");
-      if (!name) return message.reply("⚠️ Provide name to remove.");
-
-      try {
-        await Birthday.deleteOne({ name });
-      } catch {
-        let data = await getBirthdays();
-        data = data.filter(b => b.name !== name);
-        saveBirthdays(data);
-      }
-
-      return message.reply(`🗑 Removed **${name}**`);
+      if(!name) return api.sendMessage("❌ | Usage: birthday remove <name>", message.threadID);
+      const b = await Birthday.findOne({name: new RegExp(`^${name}$`, "i")});
+      if(!b) return api.sendMessage(`❌ | No birthday found for ${name}`, message.threadID);
+      await b.deleteOne();
+      return api.sendMessage(`✅ | Birthday removed for ${name}`, message.threadID);
     }
 
-    // ===== NEXT =====
-    if (sub === "next") {
-      const birthdays = await getBirthdays();
-      if (birthdays.length === 0) return message.reply("📭 | No birthdays saved yet.");
-
-      const today = moment().tz("Asia/Dhaka");
-      const sorted = birthdays.map(b => {
-        const [d, m] = b.date.split("-").map(Number);
-        let next = moment(`${today.year()}-${m}-${d}`, "YYYY-M-D");
-        if (next.isBefore(today)) next.add(1, "year");
-        return { ...b, next };
-      }).sort((a, b) => a.next - b.next);
-
-      const nxt = sorted[0];
-      return message.reply(`🎉 Next birthday: **${nxt.name}** on ${nxt.date} ${nxt.zodiac}`);
-    }
-
-    // ===== COUNTDOWN =====
-    if (sub === "countdown") {
-      const birthdays = await getBirthdays();
-      if (birthdays.length === 0) return message.reply("📭 | No birthdays saved yet.");
-
-      const today = moment().tz("Asia/Dhaka");
-      let reply = "⏳ Birthday Countdown:\n";
-      birthdays.forEach(b => {
-        const [d, m] = b.date.split("-").map(Number);
-        let next = moment(`${today.year()}-${m}-${d}`, "YYYY-M-D");
-        if (next.isBefore(today)) next.add(1, "year");
-        const days = next.diff(today, "days");
-        reply += `• ${b.name} → ${days} days left 🎂\n`;
-      });
-
-      return message.reply(reply);
-    }
-
-    // ===== EDIT =====
-    if (sub === "edit") {
+    // --- EDIT ---
+    if(sub==="edit") {
       const name = args[1];
-      const newDate = args[2];
-      if (!name || !newDate) return message.reply("⚠️ Format: birthday edit <name> <DD-MM-YYYY>");
+      const newDateStr = args[2];
+      if(!name || !newDateStr) return api.sendMessage("❌ | Usage: birthday edit <name> <DD-MM-YYYY>", message.threadID);
+      const date = parseDate(newDateStr);
+      if(!date) return api.sendMessage("❌ | Invalid date format.", message.threadID);
+      const b = await Birthday.findOne({name: new RegExp(`^${name}$`, "i")});
+      if(!b) return api.sendMessage(`❌ | No birthday found for ${name}`, message.threadID);
+      b.date = formatDate(date);
+      b.wished = false;
+      await b.save();
+      return api.sendMessage(`✅ | Birthday updated for ${name} → ${formatDate(date)}`, message.threadID);
+    }
 
-      const [day, month] = newDate.split("-").map(n => parseInt(n));
-      const zodiac = getZodiac(day, month);
-
-      try {
-        await Birthday.findOneAndUpdate({ name }, { date: newDate, zodiac });
-      } catch {
-        let data = await getBirthdays();
-        data = data.map(b => b.name === name ? { ...b, date: newDate, zodiac } : b);
-        saveBirthdays(data);
-      }
-
-      return message.reply(`✏ Updated ${name}'s birthday → ${newDate} ${zodiac}`);
+    // --- LEADERBOARD TOP 5 ---
+    if(sub==="lb" || sub==="leaderboard") {
+      if(allBirthdays.length===0) return api.sendMessage("📭 | No birthdays saved.", message.threadID);
+      const sorted = allBirthdays.sort((a,b)=>daysUntil(parseDate(a.date))-daysUntil(parseDate(b.date)));
+      const top5 = sorted.slice(0,5);
+      let lbText = "🏆 𝐓𝐨𝐩 5 𝐔𝐩𝐜𝐨𝐦𝐢𝐧𝐠 𝐁𝐢𝐫𝐭𝐡𝐝𝐚𝐲𝐬 🏆\n\n";
+      top5.forEach((b,i)=>{
+        const boldName = toBoldUnicode(b.name);
+        const boldDays = toBoldUnicode(`${daysUntil(parseDate(b.date))} days left`);
+        lbText+=`╭─‣ ${boldName}: [${b.date}]\n╰──‣ (${boldDays})\n\n`;
+      });
+      return api.sendMessage(lbText, message.threadID);
     }
   }
 };
