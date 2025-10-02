@@ -15,7 +15,6 @@ module.exports = {
     en: {
       invalid_amount: "𝗣𝗹𝗲𝗮𝘀𝗲 𝗲𝗻𝘁𝗲𝗿 𝗮 𝘃𝗮𝗹𝗶𝗱 𝗮𝗺𝗼𝘂𝗻𝘁 😿💅",
       not_enough_money: "𝗣𝗹𝗲𝗮𝘀𝗲 𝗰𝗵𝗲𝗰𝗸 𝘆𝗼𝘂𝗿 𝗯𝗮𝗹𝗮𝗻𝗰𝗲 🤡",
-      max_limit: "❌ | The maximum bet amount is 50M.",
       limit_reached: "❌ | 𝐘𝐨𝐮 𝐡𝐚𝐯𝐞 𝐫𝐞𝐚𝐜𝐡𝐞𝐝 𝐲𝐨𝐮𝐫 𝐬𝐥𝐨𝐭 𝐥𝐢𝐦𝐢𝐭. 𝐓𝐫𝐲 𝐚𝐠𝐚𝐢𝐧 𝐢𝐧 %1.",
       jackpot_message: ">🎀\n𝐉𝐚𝐜𝐤𝐩𝐨𝐭! 𝐘𝐨𝐮 𝐰𝐨𝐧 $%1 𝐰𝐢𝐭𝐡 𝐭𝐡𝐫𝐞𝐞 ❤ 𝐬𝐲𝐦𝐛𝐨𝐥𝐬, 𝐁𝐚𝐛𝐲!\n• 𝐒𝐥𝐨𝐭 𝐑𝐞𝐬𝐮𝐥𝐭 [ %2 | %3 | %4 ]",
       win_message: ">🎀\n• 𝐁𝐚𝐛𝐲, 𝐘𝐨𝐮 𝐰𝐨𝐧 $%1\n• 𝐒𝐥𝐨𝐭 𝐑𝐞𝐬𝐮𝐥𝐭 [ %2 | %3 | %4 ]",
@@ -49,7 +48,7 @@ module.exports = {
     }
 
     // --- validations ---
-    if (amount > 50_000_000) return message.reply(getLang("max_limit"));
+    // 🔓 removed max limit (50M) restriction here
 
     const userData = await usersData.get(senderID);
     if (amount > userData.money) return message.reply(getLang("not_enough_money"));
