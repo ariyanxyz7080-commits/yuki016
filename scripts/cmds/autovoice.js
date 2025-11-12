@@ -3,7 +3,7 @@ const path = require('path');
 
 module.exports = {
 	config: {
-		name: "audio",
+		name: "autovoice",
 		version: "1.1",
 		author: "AceGun",
 		countDown: 5,
