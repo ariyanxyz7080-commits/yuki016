@@ -1,97 +1,134 @@
 const axios = require('axios');
-const yts = require("yt-search");
-
-const baseApiUrl = async () => {
-    const base = await axios.get(
-        `https://raw.githubusercontent.com/Blankid018/D1PT0/main/baseApiUrl.json`
-    );
-    return base.data.api;
-};
-
-(async () => {
-    global.apis = {
-        diptoApi: await baseApiUrl()
-    };
-})();
-
-async function getStreamFromURL(url, pathName) {
-    try {
-        const response = await axios.get(url, {
-            responseType: "stream"
-        });
-        response.data.path = pathName;
-        return response.data;
-    } catch (err) {
-        throw err;
-    }
-}
-
-global.utils = {
-    ...global.utils,
-    getStreamFromURL: global.utils.getStreamFromURL || getStreamFromURL
-};
-
-function getVideoID(url) {
-    const checkurl = /^(?:https?:\/\/)?(?:m\.|www\.)?(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))((\w|-){11})(?:\S+)?$/;
-    const match = url.match(checkurl);
-    return match ? match[1] : null;
-}
-
-const config = {
-    name: "sing",
-    author: "Mesbah Saxx",
-    credits: "Mesbah Saxx",
-    version: "1.2.0",
-    role: 0,
-    hasPermssion: 0,
-    description: "",
-    usePrefix: true,
-    prfix: true,
-    category: "media",
-    commandCategory: "media",
-    cooldowns: 5,
-    countDown: 5,
-};
-
-async function onStart({ api, args, event }) {
-    try {
-        let videoID;
-        const url = args[0];
-        let w;
-
-        if (url && (url.includes("youtube.com") || url.includes("youtu.be"))) {
-            videoID = getVideoID(url);
-            if (!videoID) {
-                await api.sendMessage("Invalid YouTube URL.", event.threadID, event.messageID);
-            }
-        } else {
-            const songName = args.join(' ');
-            w = await api.sendMessage(`Searching song "${songName}"... `, event.threadID);
-            const r = await yts(songName);
-            const videos = r.videos.slice(0, 50);
-
-            const videoData = videos[Math.floor(Math.random() * videos.length)];
-            videoID = videoData.videoId;
-        }
-
-        const { data: { title, quality, downloadLink } } = await axios.get(`${global.apis.diptoApi}/ytDl3?link=${videoID}&format=mp3`);
-
-        api.unsendMessage(w.messageID);
-        
-        const o = '.php';
-        const shortenedLink = (await axios.get(`https://tinyurl.com/api-create${o}?url=${encodeURIComponent(downloadLink)}`)).data;
-
-        await api.sendMessage({
-            body: `🔖 - 𝚃𝚒𝚝𝚕𝚎: ${title}\n✨ - 𝚀𝚞𝚊𝚕𝚒𝚝𝚢: ${quality}\n\n📥 - 𝙳𝚘𝚠𝚗𝚕𝚘𝚊𝚍 𝙻𝚒𝚗𝚔: ${shortenedLink}`,
-            attachment: await global.utils.getStreamFromURL(downloadLink, title+'.mp3')
-        }, event.threadID, event.messageID);
-    } catch (e) {
-        api.sendMessage(e.message || "An error occurred.", event.threadID, event.messageID);
-    }
-}
+const fs = require('fs');
+const path = require('path');
 
 module.exports = {
-    config,
-    onStart,
-    run: onStart
+  config: {
+    name: 'sing',
+    author: 'Nyx',
+    usePrefix: true,
+    category: 'media'
+  },
+  onStart: async ({ event, api, args, message }) => {
+    try {
+      const query = args.join(' ');
+      if (!query) return message.reply('Please provide a search query!');
+      api.setMessageReaction("⏳", event.messageID, () => {}, true);
+
+      // Common headers for all axios requests
+      const headers = {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0 Safari/537.36",
+        "Accept": "application/json"
+        // যদি API key/Authorization লাগে তাহলে এখানে দাও:
+        // "Authorization": "Bearer YOUR_API_KEY",
+      };
+
+      console.log('[sing] Searching for:', query);
+
+      // 🔎 Search API
+      const searchResponse = await axios.get(
+        `https://www.x-noobs-apis.42web.io/mostakim/ytSearch?search=${encodeURIComponent(query)}`,
+        { headers, validateStatus: null }
+      );
+
+      console.log('[sing] search status:', searchResponse.status);
+
+      if (searchResponse.status === 403) {
+        throw new Error('Search API returned 403 Forbidden — likely auth/headers/IP block.');
+      }
+      if (searchResponse.status >= 400) {
+        throw new Error(`Search API error ${searchResponse.status}`);
+      }
+
+      const parseDuration = (timestamp) => {
+        const parts = timestamp.split(':').map(part => parseInt(part));
+        let seconds = 0;
+        if (parts.length === 3) seconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
+        else if (parts.length === 2) seconds = parts[0] * 60 + parts[1];
+        return seconds;
+      };
+
+      const filteredVideos = (Array.isArray(searchResponse.data) ? searchResponse.data : []).filter(video => {
+        try {
+          const totalSeconds = parseDuration(video.timestamp);
+          return totalSeconds < 600;
+        } catch {
+          return false;
+        }
+      });
+
+      if (filteredVideos.length === 0) {
+        api.setMessageReaction("❌", event.messageID, () => {}, true);
+        return message.reply('No short videos found (under 10 minutes)!');
+      }
+
+      const selectedVideo = filteredVideos[0];
+      const tempFilePath = path.join(__dirname, `${Date.now()}_${event.senderID}.m4a`);
+
+      console.log('[sing] Selected video:', selectedVideo.title, selectedVideo.url);
+
+      // 🎶 Download API
+      const apiResponse = await axios.get(
+        `https://www.x-noobs-apis.42web.io/m/sing?url=${encodeURIComponent(selectedVideo.url)}`,
+        { headers, validateStatus: null }
+      );
+
+      console.log('[sing] m/sing status:', apiResponse.status);
+
+      if (apiResponse.status === 403) {
+        throw new Error('m/sing API returned 403 Forbidden — likely auth/headers/IP block.');
+      }
+      if (apiResponse.status >= 400) {
+        throw new Error(`m/sing API error ${apiResponse.status}`);
+      }
+
+      if (!apiResponse.data.url) {
+        throw new Error('No audio URL found in response');
+      }
+
+      console.log('[sing] Audio URL:', apiResponse.data.url);
+
+      // 🔊 Download audio stream with extra headers
+      const writer = fs.createWriteStream(tempFilePath);
+      const audioResponse = await axios({
+        url: apiResponse.data.url,
+        method: 'GET',
+        responseType: 'stream',
+        headers: {
+          ...headers,
+          "Range": "bytes=0-",
+          "Referer": "https://www.youtube.com/",
+          "Origin": "https://www.youtube.com"
+        },
+        validateStatus: null
+      });
+
+      console.log('[sing] audio fetch status:', audioResponse.status);
+      if (audioResponse.status === 403) throw new Error('Audio URL returned 403 Forbidden.');
+      if (audioResponse.status >= 400) throw new Error(`Audio fetch error ${audioResponse.status}`);
+
+      audioResponse.data.pipe(writer);
+      await new Promise((resolve, reject) => {
+        writer.on('finish', resolve);
+        writer.on('error', reject);
+      });
+
+      api.setMessageReaction("✅", event.messageID, () => {}, true);
+
+      await message.reply({
+        body: `🎧 Now playing: ${selectedVideo.title}\nDuration: ${selectedVideo.timestamp}`,
+        attachment: fs.createReadStream(tempFilePath)
+      });
+
+      fs.unlink(tempFilePath, (err) => {
+        if (err) message.reply(`Error deleting temp file: ${err.message}`);
+      });
+
+    } catch (error) {
+      console.error('[sing] Error:', error);
+      api.setMessageReaction("❌", event.messageID, () => {}, true);
+      return message.reply(`❌ Error: ${error.message}`);
+    }
+  }
 };
